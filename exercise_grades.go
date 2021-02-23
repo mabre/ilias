@@ -10,34 +10,30 @@ import (
 	"github.com/PuerkitoBio/goquery"
 )
 
-
 const (
-	gradesPath = "ilias.php?vw=1&cmd=post&cmdClass=ilexercisemanagementgui&cmdNode=b8:lt:b9&baseClass=ilExerciseHandlerGUI&fallbackCmd=saveStatusAll"
+	gradesPath         = "ilias.php?vw=1&cmd=post&cmdClass=ilexercisemanagementgui&cmdNode=b8:lt:b9&baseClass=ilExerciseHandlerGUI&fallbackCmd=saveStatusAll"
 	gradesOverviewPath = "ilias.php?cmd=showGradesOverview&cmdClass=ilexercisemanagementgui&cmdNode=b8:lt:b9&baseClass=ilExerciseHandlerGUI"
 )
 
 var (
-
 	idRegex = regexp.MustCompile(`(?P<forename>.+),\s(?P<surname>.+)\s\[(?P<id>\w+)\]`)
 )
 
 type GradesUpdateQuery struct {
-	Reference	string  `schema:"ref_id"`
-	Assignment	string	`schema:"ass_id"`
-	Token	    string	`schema:"rtoken"`
+	Reference  string `schema:"ref_id"`
+	Assignment string `schema:"ass_id"`
+	Token      string `schema:"rtoken"`
 }
 
 type GradesExportQuery struct {
-	Reference	string  `schema:"ref_id"`
+	Reference string `schema:"ref_id"`
 }
 
-
-
 type Grading struct {
-	Id		string
-	Forename	string
-	Surname		string
-	Grades		[]string
+	Id       string
+	Forename string
+	Surname  string
+	Grades   []string
 }
 
 func (grading *Grading) ToRow() []string {
@@ -68,18 +64,23 @@ func (exercise *ExerciseService) UpdateGrades(params *GradesUpdateQuery, correct
 
 	// Magic voodo parameters
 	values := url.Values{
-		"selected_cmd": {"saveStatusSelected"},
+		"selected_cmd":  {"saveStatusSelected"},
 		"selected_cmd2": {"saveStatusSelected"},
-		"select_cmd2": {"Ausführen"},
+		"select_cmd2":   {"Ausführen"},
 	}
 
 	for _, correction := range corrections {
-		values.Add("member[" + correction.Student + "]", "1")
-		values.Add("id[" + correction.Student + "]", "1")
-		values.Add("idlid[" + correction.Student + "]", "")
-		values.Add("status[" + correction.Student + "]", "passed")
-		values.Add("mark[" + correction.Student + "]", strconv.FormatFloat(correction.Points, 'f', -1, 64) + " Punkte")
-		values.Add("notice[" + correction.Student + "]", "")
+		var points_str []string
+		for _, i := range correction.Points {
+			points_str = append(points_str, strconv.Itoa(i))
+		}
+		point_str := "=" + strings.Join(points_str, "+")
+		values.Add("member["+correction.Student+"]", "1")
+		values.Add("id["+correction.Student+"]", "1")
+		values.Add("idlid["+correction.Student+"]", "")
+		values.Add("status["+correction.Student+"]", "passed")
+		values.Add("mark["+correction.Student+"]", point_str)
+		values.Add("notice["+correction.Student+"]", "")
 	}
 
 	req, err := exercise.client.NewRequest(http.MethodPost, path, values)
@@ -154,10 +155,10 @@ func extractGradings(doc *goquery.Document) ([]Grading, error) {
 			Id:       strings.TrimSpace(result["id"]),
 			Forename: strings.TrimSpace(result["forename"]),
 			Surname:  strings.TrimSpace(result["surname"]),
-			Grades: []string{},
+			Grades:   []string{},
 		}
 
-		for i := 1; i < columns + 1; i++ {
+		for i := 1; i < columns+1; i++ {
 			points := strings.TrimSpace(nodes.Eq(i).Text())
 			if len(points) == 0 {
 				points = "0 Punkte"

@@ -12,12 +12,11 @@ const (
 )
 
 type CommentParams struct {
-	Reference	string  `schema:"ref_id"`
-	Assignment	string	`schema:"ass_id"`
+	Reference  string `schema:"ref_id"`
+	Assignment string `schema:"ass_id"`
 }
 
 func (exercise *ExerciseService) UpdateComment(params *CommentParams, correction Correction) error {
-
 	// Prepare request url
 	path, err := addQueryParams(commentPath, params)
 	if err != nil {
@@ -27,7 +26,7 @@ func (exercise *ExerciseService) UpdateComment(params *CommentParams, correction
 	values := url.Values{
 		"ass_id": {params.Assignment},
 		"mem_id": {correction.Student},
-		"comm": {correction.Correction},
+		"comm":   {correction.Correction},
 	}
 
 	req, err := exercise.client.NewRequest(http.MethodPost, path, values)

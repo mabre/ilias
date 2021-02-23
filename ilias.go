@@ -19,15 +19,15 @@ var (
 	encoder = schema.NewEncoder()
 
 	ErrCredentials = errors.New("wrong username or password")
-	ErrToken = errors.New("token could not be found")
-	ErrFullName = errors.New("full name could not be found")
-	ErrUpdate = errors.New("update failed")
-	ErrFileHash = errors.New("file hash could not be found")
+	ErrToken       = errors.New("token could not be found")
+	ErrFullName    = errors.New("full name could not be found")
+	ErrUpdate      = errors.New("update failed")
+	ErrFileHash    = errors.New("file hash could not be found")
 )
 
 const (
-	baseUrl        string = "https://ilias.hhu.de/"
-	defaultHost	   string = "ilias.hhu.de"
+	baseUrl     string = "https://ilias.hhu.de/"
+	defaultHost string = "ilias.hhu.de"
 )
 
 type Credentials struct {
@@ -38,23 +38,23 @@ type Credentials struct {
 type Client struct {
 
 	// The current user's login name.
-	User		*User
+	User *User
 
 	// Base URL for requests. Should end with a dash.
-	BaseURL 	*url.URL
+	BaseURL *url.URL
 
 	// Host field set within request headers
-	Host		string
+	Host string
 
 	// HTTP Client used for making requests against the ILIAS platform.
-	client 		*http.Client
+	client *http.Client
 
-	common 		service
+	common service
 
-	Auth 		*AuthService
-	Exercise 	*ExerciseService
-	Members		*MemberService
-	Tables		*TableService
+	Auth     *AuthService
+	Exercise *ExerciseService
+	Members  *MemberService
+	Tables   *TableService
 }
 
 type service struct {
@@ -75,11 +75,9 @@ func NewClient(client *http.Client, credentials *Credentials) (*Client, error) {
 	}
 	client.Jar = jar
 
-
-	
 	// Parse the base url and create the http client
 	base, _ := url.Parse(baseUrl)
-	ret := &Client{ BaseURL: base, Host: defaultHost, client: client }
+	ret := &Client{BaseURL: base, Host: defaultHost, client: client}
 	ret.common.client = ret
 	ret.Auth = (*AuthService)(&ret.common)
 	ret.Exercise = (*ExerciseService)(&ret.common)
@@ -124,8 +122,8 @@ func (c *Client) NewRequest(method string, path string, body url.Values) (*http.
 }
 
 type UploadFile struct {
-	Header	    textproto.MIMEHeader
-	Content		*bytes.Buffer
+	Header  textproto.MIMEHeader
+	Content *bytes.Buffer
 }
 
 func (c *Client) NewMultipartRequest(method string, path string, body url.Values, upload *UploadFile) (*http.Request, error) {
@@ -155,6 +153,46 @@ func (c *Client) NewMultipartRequest(method string, path string, body url.Values
 			_ = writer.WriteField(key, value)
 		}
 	}
+
+	writer.Close()
+
+	request, err := http.NewRequest(method, target.String(), &buf)
+	if err != nil {
+		return nil, err
+	}
+
+	request.Header.Set("Content-Type", writer.FormDataContentType())
+	request.Host = c.Host
+	return request, nil
+}
+
+func (c *Client) NewMultipartUploadRequest(method string, path string, body url.Values, upload *UploadFile) (*http.Request, error) {
+
+	target, err := c.BaseURL.Parse(path)
+	if err != nil {
+		return nil, err
+	}
+
+	var buf bytes.Buffer
+	writer := multipart.NewWriter(&buf)
+
+	// Create form field for the file
+	fieldWriter, err := writer.CreatePart(upload.Header)
+	if err != nil {
+		return nil, err
+	}
+
+	// Copy file contents into request
+	if _, err = io.Copy(fieldWriter, upload.Content); err != nil {
+		return nil, err
+	}
+
+	// Copy additional parameters
+	fieldWriter2, err := writer.CreatePart(textproto.MIMEHeader{
+		"Content-Disposition": {"form-data; name=\"cmd[uploadFile]\""},
+	})
+
+	fieldWriter2.Write([]byte("Hochladen"))
 
 	writer.Close()
 
